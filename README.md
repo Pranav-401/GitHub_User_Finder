@@ -2,7 +2,7 @@
 
 A React and TypeScript application that lets you search for GitHub users and explore their public profiles and recently updated repositories.
 
-Built to practise **React component architecture, custom hooks, type-safe development, automated testing with Vitest, and CI with GitHub Actions**.
+Built to practise **React component architecture, custom hooks, type-safe development, automated testing with Vitest, component documentation with Storybook, visual regression testing with Chromatic, and CI with GitHub Actions**.
 
 <p align="center">
   <a href="https://github.com/Pranav-401/GitHub_User_Finder/actions/workflows/ci.yml">
@@ -12,6 +12,8 @@ Built to practise **React component architecture, custom hooks, type-safe develo
   <img src="https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Vitest-5-6E9F18?logo=vitest&logoColor=white" alt="Vitest" />
   <img src="https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white" alt="Vite" />
+    <img src="https://img.shields.io/badge/Storybook-10.6.5-FF4785?logo=storybook&logoColor=white" alt="Storybook" />
+  <img src="https://img.shields.io/badge/Chromatic-Visual%20Testing-FC521F?logo=chromatic&logoColor=white" alt="Chromatic" />
 </p>
 
 ## Table of Contents
@@ -22,11 +24,11 @@ Built to practise **React component architecture, custom hooks, type-safe develo
 - [React and TypeScript Design](#react-and-typescript-design)
 - [Custom Hook: useGithubUser](#custom-hook-usegithubuser)
 - [Testing Strategy](#testing-strategy)
+- [Storybook](#storybook)
+- [Chromatic Visual Regression Testing](#chromatic-visual-regression-testing)
 - [GitHub Actions CI](#github-actions-ci)
-- [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
 - [Available Commands](#available-commands)
-- [Future Improvements](#future-improvements)
 - [Author](#author)
 
 ## Overview
@@ -35,7 +37,7 @@ GitHub User Finder consumes the public GitHub REST API to retrieve profile infor
 
 The application separates UI components from data-fetching logic through a custom React hook. TypeScript interfaces define the expected shapes of GitHub users and repositories, while Vitest and React Testing Library help verify component behaviour and asynchronous operations.
 
-The project also includes a GitHub Actions workflow that builds and tests the application on a self-hosted Windows x64 runner.
+The project also includes Storybook stories for documenting and testing UI components, Chromatic for hosted visual regression testing, and a GitHub Actions workflow that builds, tests, and publishes the Storybook from a self-hosted Windows x64 runner.
 
 ### How It Works
 
@@ -254,6 +256,105 @@ The project has six test files and 23 passing tests in the current reported test
 
 The coverage command generates a coverage report, but a coverage percentage or enforced coverage threshold has not been established in the documented CI configuration.
 
+## Storybook
+
+Storybook is used to develop, document, and review the application's UI components in isolation, without having to navigate through the complete application flow.
+
+The project uses **Storybook 10.6.5** with the React Vite framework. Stories are kept together in `src/stories/`, separate from the component implementation and unit-test files.
+
+### Stories
+
+The Storybook contains stories for seven components:
+
+| Story file                 | What it demonstrates                                                                       |
+| -------------------------- | ------------------------------------------------------------------------------------------ |
+| `App.stories.tsx`          | Empty state, successful search, loading, user-not-found, API error, and empty repositories |
+| `SearchBar.stories.tsx`    | Default search field and user interactions                                                 |
+| `UserCard.stories.tsx`     | Full profile and optional/missing details                                                  |
+| `RepoList.stories.tsx`     | Repository collection and empty state                                                      |
+| `RepoItem.stories.tsx`     | Repository information                                                                     |
+| `LoadingState.stories.tsx` | Loading skeleton                                                                           |
+| `ErrorMessage.stories.tsx` | Error message and retry action                                                             |
+
+The stories use realistic component data and MSW handlers where API requests need to be controlled. This makes it possible to review important UI states independently and repeatably.
+
+### Storybook Addons
+
+The Storybook setup includes addons for:
+
+- **Vitest:** runs story interaction tests in the Storybook test project.
+- **Accessibility (a11y):** helps identify accessibility issues in stories.
+- **Docs:** supports component documentation.
+- **MSW:** mocks network requests used by stories.
+- **MCP:** exposes Storybook information and tools to supported AI coding assistants.
+- **Chromatic:** supports hosted visual testing and review.
+
+### Run Storybook locally
+
+Start the Storybook development server:
+
+```bash
+npm run storybook
+```
+
+Open the local Storybook URL shown in the terminal (typically `http://127.0.0.1:6006/`).
+
+Build the static Storybook:
+
+```bash
+npm run build-storybook
+```
+
+Run the Storybook Vitest project:
+
+```bash
+npx vitest --project storybook run
+```
+
+The current Chromatic build detected **22 stories across 7 components**.
+
+## Chromatic Visual Regression Testing
+
+The project uses **Chromatic** to publish Storybook and capture visual snapshots. Chromatic compares snapshots between builds so visual changes can be reviewed when components or styles are updated.
+
+The initial successful Chromatic build published the Storybook and captured **22 snapshots across 7 components**.
+
+### Local Chromatic command
+
+The project provides this npm script:
+
+```json
+{
+  "scripts": {
+    "chromatic": "chromatic --exit-once-uploaded"
+  }
+}
+```
+
+Run it with the project token available as an environment variable:
+
+```powershell
+$env:CHROMATIC_PROJECT_TOKEN = "YOUR_CHROMATIC_PROJECT_TOKEN"
+npm run chromatic
+```
+
+Do not commit the project token. Store it in the local `.env` file only if that file is ignored by Git, and configure the same value as a GitHub Actions repository secret named `CHROMATIC_PROJECT_TOKEN`.
+
+### GitHub Actions integration
+
+The CI workflow runs Chromatic after the application build, Storybook build, and automated tests. It reads the token from GitHub Actions secrets:
+
+```yaml
+- name: Run Chromatic
+  run: npm run chromatic
+  env:
+    CHROMATIC_PROJECT_TOKEN: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+```
+
+The workflow checks out the complete Git history with `fetch-depth: 0`, allowing Chromatic to identify the previous build and compare snapshots. The self-hosted Windows runner uses Node.js 22 or newer, which is required by the installed Chromatic CLI version.
+
+A successful Chromatic run publishes the Storybook and reports the visual snapshot results in the Chromatic project.
+
 ## GitHub Actions CI
 
 The repository includes a GitHub Actions workflow at:
@@ -262,7 +363,7 @@ The repository includes a GitHub Actions workflow at:
 .github/workflows/ci.yml
 ```
 
-It automates the build and test process when code is pushed or a pull request targets the `master` or `main` branch.
+It automates the application build, Storybook build, tests, and Chromatic publication when code is pushed to or a pull request targets the `master` branch.
 
 ### CI Workflow
 
@@ -270,25 +371,34 @@ It automates the build and test process when code is pushed or a pull request ta
 Git Push / Pull Request
           |
           v
-  Checkout Repository
+   Checkout Repository
+   (full Git history)
           |
           v
-    Setup Node.js 20
+     Setup Node.js 22
           |
           v
-    Install Dependencies
+   Install Dependencies
          npm ci
           |
           v
-   Production Build
+    Production Build
       npm run build
           |
           v
-    Run Automated Tests
+     Build Storybook
+  npm run build-storybook
+          |
+          v
+   Run Automated Tests
         npm test
           |
           v
-      Job Result
+   Publish to Chromatic
+     npm run chromatic
+          |
+          v
+       Job Result
 ```
 
 ### Self-Hosted Runner
@@ -305,61 +415,17 @@ The runner must be online and available to receive jobs.
 
 ### Checks Performed
 
-| Check                   | Command         | Purpose                                                               |
-| ----------------------- | --------------- | --------------------------------------------------------------------- |
-| Dependency installation | `npm ci`        | Installs dependencies from the lockfile                               |
-| Production build        | `npm run build` | Runs TypeScript project builds and creates the Vite production bundle |
-| Automated tests         | `npm test`      | Runs the Vitest test suite                                            |
+| Check                   | Command                   | Purpose                                                               |
+| ----------------------- | ------------------------- | --------------------------------------------------------------------- |
+| Dependency installation | `npm ci`                  | Installs dependencies from the lockfile                               |
+| Production build        | `npm run build`           | Runs TypeScript project builds and creates the Vite production bundle |
+| Storybook build         | `npm run build-storybook` | Builds the static Storybook                                           |
+| Automated tests         | `npm test`                | Runs the Vitest test suite                                            |
+| Chromatic               | `npm run chromatic`       | Publishes Storybook and runs visual snapshot testing                  |
 
 The project also provides an ESLint command, `npm run lint`, which can be run locally.
 
 A green workflow indicates that the configured CI steps completed successfully. It does not, by itself, guarantee that every possible application behaviour has been tested.
-
-## Project Structure
-
-```text
-GitHub_User_Finder/
-├── .github/
-│   └── workflows/
-│       └── ci.yml
-├── public/
-├── src/
-│   ├── components/
-│   │   ├── SearchBar.tsx
-│   │   ├── SearchBar.test.tsx
-│   │   ├── UserCard.tsx
-│   │   ├── UserCard.test.tsx
-│   │   ├── RepoList.tsx
-│   │   ├── RepoList.test.tsx
-│   │   ├── RepoItem.tsx
-│   │   ├── RepoItem.test.tsx
-│   │   ├── LoadingState.tsx
-│   │   └── ErrorMessage.tsx
-│   ├── hooks/
-│   │   ├── useGithubUser.ts
-│   │   └── userGithubUser.test.ts
-│   ├── types/
-│   │   └── github.ts
-│   ├── utils/
-│   │   └── formatNumber.ts
-│   ├── test/
-│   │   ├── mock.ts
-│   │   └── setup.ts
-│   ├── App.tsx
-│   ├── App.css
-│   ├── index.css
-│   └── main.tsx
-├── .gitignore
-├── eslint.config.js
-├── index.html
-├── package.json
-├── package-lock.json
-├── tsconfig.app.json
-├── tsconfig.json
-├── tsconfig.node.json
-├── vite.config.ts
-└── README.md
-```
 
 ## Getting Started
 
@@ -411,7 +477,13 @@ npm test
 npm run lint
 ```
 
-### 7. Build for Production
+### 7. Start Storybook
+
+```bash
+npm run storybook
+```
+
+### 8. Build for Production
 
 ```bash
 npm run build
@@ -427,14 +499,17 @@ npm run preview
 
 ## Available Commands
 
-| Command            | Description                                                  |
-| ------------------ | ------------------------------------------------------------ |
-| `npm run dev`      | Starts the Vite development server                           |
-| `npm test`         | Runs the Vitest test suite once                              |
-| `npm run coverage` | Runs tests with coverage reporting                           |
-| `npm run lint`     | Runs ESLint                                                  |
-| `npm run build`    | Runs TypeScript project builds and the Vite production build |
-| `npm run preview`  | Serves the production build locally                          |
+| Command                   | Description                                                   |
+| ------------------------- | ------------------------------------------------------------- |
+| `npm run dev`             | Starts the Vite development server                            |
+| `npm test`                | Runs the Vitest test suite once                               |
+| `npm run coverage`        | Runs tests with coverage reporting                            |
+| `npm run lint`            | Runs ESLint                                                   |
+| `npm run build`           | Runs TypeScript project builds and the Vite production build  |
+| `npm run storybook`       | Starts the Storybook development server                       |
+| `npm run build-storybook` | Builds the static Storybook                                   |
+| `npm run chromatic`       | Publishes Storybook to Chromatic for visual testing           |
+| `npm run preview`         | Serves the production build locally                           |
 
 ## Author
 
